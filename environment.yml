@@ -1,0 +1,45 @@
+name: cortical_connectome_project
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # Python and Core Libraries
+  - python=3.9
+  - pandas
+  - numpy
+  - matplotlib
+  - seaborn
+  - scikit-learn
+  - scipy
+
+  # Graph Libraries
+  - networkx
+  - python-igraph
+
+  # PyTorch Core (Ensure compatibility with your system)
+  - pytorch
+  - torchvision
+  - torchaudio
+  - cpuonly  # Remove if using GPU, or specify `cudatoolkit=<version>`
+
+  # Visualization Tools
+  - plotly
+  - umap-learn
+  - bokeh
+
+  # Web Interfaces
+  - streamlit
+  - fastapi
+  - uvicorn
+
+  # Jupyter and Utilities
+  - jupyterlab
+  - ipykernel
+  - tqdm
+
+  # Use pip for additional packages
+  - pip
+  - pip:
+      - pytorch-geometric
+      - captum
+      - tsne
