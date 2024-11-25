@@ -4,16 +4,40 @@ import pandas as pd
 import numpy as np
 import networkx as nx
 import os
+import streamlit as st
 
-def process_condition(data, condition_label):
-    # Processa os dados para uma única condição e gera um conectoma.
+def process_condition(data, condition_label, usar_clustering=False):
+    # Filtrar os dados para a condição especificada
     condition_data = data[data['Condition'] == condition_label]
-    channel_data = condition_data.drop('Condition', axis=1)
-    if channel_data.isnull().values.any():
-        channel_data = channel_data.fillna(channel_data.mean())
+    
+    if condition_data.empty:
+        st.error(f"Não há dados para a condição '{condition_label}'.")
+        return None, None
+
+    # Selecionar apenas as colunas numéricas relevantes
+    numeric_columns = condition_data.select_dtypes(include=[np.number]).columns.tolist()
+    if not numeric_columns:
+        st.error("Não foram encontradas colunas numéricas nos dados.")
+        return None, None
+
+    channel_data = condition_data[numeric_columns]
+    
+    # Preencher valores NaN com a média da coluna
+    channel_data = channel_data.apply(pd.to_numeric, errors='coerce')
+    channel_data = channel_data.fillna(channel_data.mean())
+    
+    # Calcular a matriz de correlação
     adj_matrix = channel_data.corr().values
+    
+    # Verificar se a matriz de adjacência é válida
+    if np.isnan(adj_matrix).any() or np.isinf(adj_matrix).any():
+        st.error("A matriz de adjacência contém valores inválidos.")
+        return None, None
+    
+    # Criar o grafo
     G = nx.from_numpy_array(adj_matrix)
-    G = nx.relabel_nodes(G, dict(zip(range(len(channel_data.columns)), channel_data.columns)))
+    G = nx.relabel_nodes(G, dict(zip(range(len(numeric_columns)), numeric_columns)))
+    
     return G, adj_matrix
 
 def generate_connectomes(csv_file, output_dir):

@@ -8,14 +8,62 @@ import numpy as np
 import networkx as nx
 from torch.utils.data import random_split
 
-def create_data_object(graph_file, label):
-    from torch_geometric.utils import from_networkx
-    G = nx.read_graphml(graph_file)
-    data = from_networkx(G)
-    num_nodes = G.number_of_nodes()
-    data.x = torch.eye(num_nodes, dtype=torch.float)
-    data.y = torch.tensor([label], dtype=torch.long)
-    return data
+
+def create_data_objects(connectomes):
+    """
+    Creates data objects for all graphs in the new hierarchical structure of connectomes.
+
+    Args:
+        connectomes (dict): A nested dictionary structured as:
+            connectomes[session][condition][window] = (graph, cluster_legend)
+
+    Returns:
+        list: A list of data objects, each representing a graph in the connectome.
+    """
+
+
+    data_objects = []
+
+    # Iterate over the hierarchical structure
+    for session, conditions in connectomes.items():
+        for condition, windows in conditions.items():
+            for window, (graph, cluster_legend) in windows.items():
+                # Extract nodes and edges
+                nodes = list(graph.nodes)
+                edges = list(graph.edges)
+                edge_weights = [graph[u][v]['weight'] for u, v in edges]
+
+                # Map nodes to indices for PyTorch Geometric
+                node_to_index = {node: idx for idx, node in enumerate(nodes)}
+                indexed_edges = [[node_to_index[u], node_to_index[v]] for u, v in edges]
+
+                # Convert edges and weights to tensors
+                edge_index = torch.tensor(indexed_edges, dtype=torch.long).t().contiguous()
+                edge_attr = torch.tensor(edge_weights, dtype=torch.float)
+
+                # Create node features (if any, default to 1 for now)
+                x = torch.ones((len(nodes), 1), dtype=torch.float)  # Replace with actual node features if available
+
+                # Add metadata as attributes
+                metadata = {
+                    "session": session,
+                    "condition": condition,
+                    "window": window,
+                    "cluster_legend": cluster_legend
+                }
+
+                # Create a PyTorch Geometric Data object
+                data = Data(
+                    x=x,
+                    edge_index=edge_index,
+                    edge_attr=edge_attr,
+                    metadata=metadata
+                )
+
+                data_objects.append(data)
+
+    return data_objects
+
 
 def prepare_dataset(graph_dir):
     dataset = []

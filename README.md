@@ -26,5 +26,17 @@ Este projeto implementa um pipeline completo para a análise de conectomas corti
 1. **Clone o repositório e navegue até o diretório do projeto:**
 
    ```bash
-   git clone https://github.com/seu_usuario/projeto_conectomas.git
-   cd projeto_conectomas
+   git clone https://github.com/jaimecirne/cortical_connectome_project.git
+   cd cortical_connectome_project
+
+   conda env create -f environment.yml
+
+   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+   pip install torch-scatter torch-sparse torch-cluster torch-spline-conv torch-geometric -f https://data.pyg.org/whl/torch-2.0.1+gpu.html
+
+   pip install captum
+
+   set KMP_DUPLICATE_LIB_OK=TRUE
+
+   streamlit run .\scripts\app.py
