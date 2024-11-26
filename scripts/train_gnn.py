@@ -159,31 +159,6 @@ def main():
     # Combinar os dados
     data_df = pd.concat([data_predator, data_prey], ignore_index=True)
 
-    # Substituir vírgulas por pontos nos valores numéricos
-    data_df = data_df.replace(',', '.', regex=True)
-
-    # Remover valores inválidos (substituindo por NaN)
-    data_df = data_df.replace('.', np.nan)
-
-    # Converter colunas numéricas
-    cols_to_convert = data_df.columns.difference(['Record', 'Session', 'Condition', 'Species'])
-    for col in cols_to_convert:
-        data_df[col] = pd.to_numeric(data_df[col], errors='coerce')
-
-    # Remover colunas completamente vazias após a conversão
-    data_df.dropna(axis=1, how='all', inplace=True)
-
-    # Remover linhas completamente vazias após a conversão
-    data_df.dropna(axis=0, how='all', inplace=True)
-
-    # Verificar se o DataFrame ainda tem dados suficientes
-    if data_df.empty:
-        raise ValueError("O DataFrame está vazio após a limpeza. Verifique os dados de entrada.")
-
-    # Verificar se a coluna 'Condition' está presente
-    if 'Condition' not in data_df.columns:
-        raise ValueError("A coluna 'Condition' não está presente no DataFrame. Verifique o arquivo de entrada.")
-
     # Gerar conectomas
     connectomes = generate_connectome_from_data(data_df)
 
