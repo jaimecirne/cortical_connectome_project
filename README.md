@@ -38,5 +38,33 @@ Este projeto implementa um pipeline completo para a análise de conectomas corti
    pip install captum
 
    set KMP_DUPLICATE_LIB_OK=TRUE
+   ````
 
-   streamlit run .\scripts\app.py
+   Gere os conectomas:
+
+   ```bash
+   python scripts/generate_connectomes.py
+   ````
+
+   Treine a GNN:
+
+   ```bash
+   python scripts/train_gnn.py
+   ```
+
+   Explique as predições:
+
+   ```bash
+   python scripts/explain_predictions.py
+   ```
+   Visualize os pesos com t-SNE:
+
+   ```bash
+   python scripts/visualize_tsne.py
+   ```
+   Execute a interface Streamlit:
+
+   ```bash
+   streamlit run scripts/app.py
+   ```
+   
