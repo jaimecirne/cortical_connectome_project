@@ -8,7 +8,7 @@ import os
 # Funções importadas dos scripts correspondentes
 from utils import preprocess_dataFrame
 
-def generate_connectome_from_data(df, display_directed=False, use_connection_count=False, use_clustering=False, coherence_threshold=0.1, top_k=100):
+def generate_connectome_from_data(df, display_directed=True, use_connection_count=False, use_clustering=False, coherence_threshold=None, top_k=None):
     """
     Generates connectomes from the given dataset.
 
@@ -37,8 +37,8 @@ def generate_connectome_from_data(df, display_directed=False, use_connection_cou
             connectomes[session][condition] = {}
             for window in windows:
                 # Filter data for current session and condition
-                filtered_data = df if session == 'all' else df[df['Session'] == session]
-                filtered_data = filtered_data if condition == 'all' else filtered_data[df['Condition'] == condition]
+                filtered_data = df[df['Session'] == session]
+                filtered_data = df[df['Condition'] == condition]
 
                 # Check if filtered_data is empty
                 if filtered_data.empty:
@@ -110,212 +110,6 @@ def generate_connectome_from_data(df, display_directed=False, use_connection_cou
 
     return connectomes
 
-
-# def generate_connectome_from_data(df, display_directed=False, use_connection_count=False, use_clustering=False):
-#     """
-#     Generates connectomes from the given dataset.
-
-#     Args:
-#         df (pd.DataFrame): Input DataFrame containing connectivity data.
-#         display_directed (bool): Whether to create directed graphs.
-#         use_connection_count (bool): If True, edge weights are based on connection count; otherwise, coherence.
-#         use_clustering (bool): If True, apply clustering to graphs.
-
-#     Returns:
-#         dict: Nested dictionary with connectomes structured as:
-#               connectomes[session][condition][window] = (graph, cluster_legend)
-#     """
-#     # Preprocess the DataFrame
-    
-#     sessions, conditions, windows, df = preprocess_dataFrame(df)
-
-#     # Initialize the connectomes dictionary
-#     connectomes = {}
-
-#     # Generate graphs for each session, condition, and window
-#     for session in sessions:
-#         connectomes[session] = {}
-#         for condition in conditions:
-#             connectomes[session][condition] = {}
-#             for window in windows:
-#                 # Filter data for current session and condition
-#                 filtered_data = df if session == 'all' else df[df['Session'] == session]
-#                 filtered_data = filtered_data if condition == 'all' else filtered_data[filtered_data['Condition'] == condition]
-
-#                 # Check if filtered_data is empty
-#                 if filtered_data.empty:
-#                     continue  # Skip if no data
-
-#                 # Determine the coherence column based on the window
-#                 coherence_col = None
-#                 if window == 'Win0':
-#                     coherence_col = 'LoGammaCoherenceSignifWin0Spike'
-#                 elif window == 'Win1':
-#                     coherence_col = 'LoGammaCoherenceSignifWin1Spike'
-#                 elif window == 'Win2':
-#                     coherence_col = 'LoGammaCoherenceSignifWin2Spike'
-
-#                 # Initialize the graph
-#                 G = nx.DiGraph() if display_directed else nx.Graph()
-#                 coherence_sums = {}
-#                 coherence_counts = {}
-
-#                 # Add edges to the graph
-#                 for _, row in filtered_data.iterrows():
-#                     ch1, ch2 = row['Ch1'], row['Ch2']
-#                     coherence = row[coherence_col] if coherence_col else 0
-
-#                     if use_connection_count:
-#                         if G.has_edge(ch1, ch2):
-#                             G[ch1][ch2]['weight'] += 1
-#                         else:
-#                             G.add_edge(ch1, ch2, weight=1)
-#                     else:
-#                         coherence_sums[(ch1, ch2)] = coherence_sums.get((ch1, ch2), 0) + coherence
-#                         coherence_counts[(ch1, ch2)] = coherence_counts.get((ch1, ch2), 0) + 1
-
-#                 # Add edges with normalized coherence weights
-#                 if not use_connection_count:
-#                     max_avg_coherence = 0
-#                     avg_coherence = {}
-#                     for (ch1, ch2), sum_coherence in coherence_sums.items():
-#                         avg_coherence[(ch1, ch2)] = sum_coherence / coherence_counts[(ch1, ch2)]
-#                         max_avg_coherence = max(max_avg_coherence, avg_coherence[(ch1, ch2)])
-
-#                     for (ch1, ch2), coherence in avg_coherence.items():
-#                         normalized_coherence = coherence / max_avg_coherence if max_avg_coherence > 0 else 0
-#                         G.add_edge(ch1, ch2, weight=normalized_coherence)
-
-#                 # Apply clustering if enabled
-#                 cluster_legend = None
-#                 if use_clustering and G.number_of_nodes() > 0:
-#                     partition = community_louvain.best_partition(G)
-#                     clusters_map = {}
-#                     for node, community in partition.items():
-#                         clusters_map.setdefault(community, []).append(node)
-
-#                     cluster_legend = "\n".join([f"Cluster {c}: {', '.join(map(str, nodes))}" for c, nodes in clusters_map.items()])
-#                     clustered_G = nx.Graph()
-#                     for node, community in partition.items():
-#                         clustered_G.add_node(community)
-
-#                     for ch1, ch2, data in G.edges(data=True):
-#                         community1 = partition[ch1]
-#                         community2 = partition[ch2]
-#                         weight = data['weight']
-#                         if clustered_G.has_edge(community1, community2):
-#                             clustered_G[community1][community2]['weight'] += weight
-#                         else:
-#                             clustered_G.add_edge(community1, community2, weight=weight)
-
-#                     G = clustered_G
-
-#                 # Store the graph and cluster legend
-#                 connectomes[session][condition][window] = (G, cluster_legend)
-
-#     return connectomes
-
-
-# def generate_connectome_from_data(df, display_directed=False, use_connection_count=False, use_clustering=False):
-#     """
-#     Generates connectomes from the given dataset.
-
-#     Args:
-#         df (pd.DataFrame): Input DataFrame containing connectivity data.
-#         display_directed (bool): Whether to create directed graphs.
-#         use_connection_count (bool): If True, edge weights are based on connection count; otherwise, coherence.
-#         use_clustering (bool): If True, apply clustering to graphs.
-
-#     Returns:
-#         dict: Nested dictionary with connectomes structured as:
-#               connectomes[session][condition][window] = (graph, cluster_legend)
-#     """
-#     # Preprocess the DataFrame
-    
-#     sessions, conditions, windows, df = preprocess_dataFrame(df)
-
-#     # Initialize the connectomes dictionary
-#     connectomes = {}
-
-#     # Generate graphs for each session, condition, and window
-#     for session in sessions:
-#         connectomes[session] = {}
-#         for condition in conditions:
-#             connectomes[session][condition] = {}
-#             for window in windows:
-#                 # Filter data for current session and condition
-#                 filtered_data = df if session == 'all' else df[df['Session'] == session]
-#                 filtered_data = filtered_data if condition == 'all' else filtered_data[filtered_data['Condition'] == condition]
-
-#                 # Determine the coherence column based on the window
-#                 coherence_col = None
-#                 if window == 'Win0':
-#                     coherence_col = 'LoGammaCoherenceSignifWin0Spike'
-#                 elif window == 'Win1':
-#                     coherence_col = 'LoGammaCoherenceSignifWin1Spike'
-#                 elif window == 'Win2':
-#                     coherence_col = 'LoGammaCoherenceSignifWin2Spike'
-
-#                 # Initialize the graph
-#                 G = nx.DiGraph() if display_directed else nx.Graph()
-#                 coherence_sums = {}
-#                 coherence_counts = {}
-
-#                 # Add edges to the graph
-#                 for _, row in filtered_data.iterrows():
-#                     ch1, ch2 = row['Ch1'], row['Ch2']
-#                     coherence = row[coherence_col] if coherence_col else 0
-
-#                     if use_connection_count:
-#                         if G.has_edge(ch1, ch2):
-#                             G[ch1][ch2]['weight'] += 1
-#                         else:
-#                             G.add_edge(ch1, ch2, weight=1)
-#                     else:
-#                         coherence_sums[(ch1, ch2)] = coherence_sums.get((ch1, ch2), 0) + coherence
-#                         coherence_counts[(ch1, ch2)] = coherence_counts.get((ch1, ch2), 0) + 1
-
-#                 # Add edges with normalized coherence weights
-#                 if not use_connection_count:
-#                     max_avg_coherence = 0
-#                     avg_coherence = {}
-#                     for (ch1, ch2), sum_coherence in coherence_sums.items():
-#                         avg_coherence[(ch1, ch2)] = sum_coherence / coherence_counts[(ch1, ch2)]
-#                         max_avg_coherence = max(max_avg_coherence, avg_coherence[(ch1, ch2)])
-
-#                     for (ch1, ch2), coherence in avg_coherence.items():
-#                         normalized_coherence = coherence / max_avg_coherence if max_avg_coherence > 0 else 0
-#                         G.add_edge(ch1, ch2, weight=normalized_coherence)
-
-#                 # Apply clustering if enabled
-#                 cluster_legend = None
-#                 if use_clustering:
-#                     partition = community_louvain.best_partition(G)
-#                     clusters_map = {}
-#                     for node, community in partition.items():
-#                         clusters_map.setdefault(community, []).append(node)
-
-#                     cluster_legend = "\n".join([f"Cluster {c}: {', '.join(map(str, nodes))}" for c, nodes in clusters_map.items()])
-#                     clustered_G = nx.Graph()
-#                     for node, community in partition.items():
-#                         clustered_G.add_node(community)
-
-#                     for ch1, ch2, data in G.edges(data=True):
-#                         community1 = partition[ch1]
-#                         community2 = partition[ch2]
-#                         weight = data['weight']
-#                         if clustered_G.has_edge(community1, community2):
-#                             clustered_G[community1][community2]['weight'] += weight
-#                         else:
-#                             clustered_G.add_edge(community1, community2, weight=weight)
-
-#                     G = clustered_G
-
-#                 # Store the graph and cluster legend
-#                 connectomes[session][condition][window] = (G, cluster_legend)
-
-#     return connectomes
-
 def save_connectomes(connectomes, output_dir):
     """
     Saves connectomes in GraphML and adjacency matrix formats and computes key graph metrics.
@@ -359,7 +153,7 @@ def save_connectomes(connectomes, output_dir):
 if __name__ == "__main__":
     # Exemplo de uso:
     # Carregar o arquivo CSV
-    csv_file = 'data/c5607a01.csv'  
+    csv_file = 'data/predator_data.csv'  
     data = pd.read_csv(csv_file,  delimiter=',')
     
     connectomes = generate_connectome_from_data(data, use_clustering=False)
@@ -368,7 +162,7 @@ if __name__ == "__main__":
     output_dir = 'outputs/predator_connectomes'  
     save_connectomes(connectomes, output_dir)
 
-    csv_file = 'data/c5103a01MUA.csv'  
+    csv_file = 'data/prey_data.csv'  
 
     # Gerar conectomas
     connectomes = generate_connectome_from_data(data, use_clustering=False)

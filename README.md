@@ -68,3 +68,36 @@ Este projeto implementa um pipeline completo para a análise de conectomas corti
    streamlit run scripts/app.py
    ```
    
+
+### Pontos:
+1. **Formato das Variáveis:**
+   - `x shape`: representa os atributos dos nós no grafo, com dimensões `(número de nós, características por nó)`. Exemplo: `[1024, 32]` indica 1024 nós com 32 atributos cada.
+   - `edge_index shape`: define as conexões (arestas) no grafo com formato `[2, número de arestas]`. Cada coluna do tensor `edge_index` representa uma aresta entre dois nós.
+
+2. **Edge Index Tensor:**
+   - Este tensor conecta os nós no grafo e define como os dados fluem entre os nós na arquitetura da rede.
+
+3. **Métricas de Treinamento:**
+   - **Loss (Perda):** Representa o erro durante o treinamento. Neste caso, a perda permanece em torno de `2.485-2.486`, o que pode indicar dificuldades no aprendizado ou a necessidade de ajustes no modelo.
+   - **Acurácia:** As taxas de acurácia de treino (≈8.49%) e teste (≈7.69%) são baixas, sugerindo que o modelo pode estar subajustado ou que os dados possuem um alto grau de complexidade para a arquitetura atual.
+
+4. **Alterações nas Conexões:**
+   - As mudanças em `edge_index` entre as épocas podem estar relacionadas a diferentes amostras ou estratégias como dropout estrutural nos grafos, variando a topologia para melhorar a generalização.
+
+5. **Dimensão Reduzida:**
+   - Em algumas etapas, a dimensão de `x` e `edge_index` é menor (e.g., `[96, 32]` e `[2, 1488]`). Pode ser uma subamostra ou uma parte específica do grafo processada de forma independente.
+
+### Possíveis Melhorias:
+- **Ajuste de Hiperparâmetros:**
+  - Revisar a taxa de aprendizado e regularização.
+  - Testar arquiteturas diferentes, como aumento de camadas ou dimensões no espaço latente.
+
+- **Pré-processamento de Dados:**
+  - Normalização ou balanceamento de dados.
+  - Ajuste na definição de conexões para refletir melhor as relações entre os nós.
+
+- **Análise do Modelo:**
+  - Verificar se o modelo está aprendendo corretamente (análise de gradientes, checagem de overfitting/underfitting).
+  - Avaliar a adequação do modelo à tarefa em termos de arquitetura e loss function.
+
+Se precisar de uma análise mais detalhada ou ajuda para interpretar os resultados, por favor, forneça mais contexto sobre o modelo e o problema abordado.

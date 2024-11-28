@@ -43,8 +43,8 @@ def preprocess_dataFrame(df):
     df['Condition'] = df['Condition'].astype(str)
 
     # Unique sessions, conditions, and windows
-    sessions = list(df['Session'].unique()) + ['all']
-    conditions = [str(x) for x in df['Condition'].unique()] + ['all']
-    windows = ['Win0', 'Win1', 'Win2', 'all']
+    sessions = list(df['Session'].unique())
+    conditions = [str(x) for x in df['Condition'].unique()]
+    windows = ['Win0', 'Win1', 'Win2']
 
     return sessions, conditions, windows, df
