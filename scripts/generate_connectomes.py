@@ -8,107 +8,200 @@ import os
 # Funções importadas dos scripts correspondentes
 from utils import preprocess_dataFrame
 
-def generate_connectome_from_data(df, display_directed=True, use_connection_count=False, use_clustering=False, coherence_threshold=None, top_k=None):
-    """
-    Generates connectomes from the given dataset.
+from joblib import Parallel, delayed
+import pandas as pd
+import networkx as nx
 
-    Args:
-        df (pd.DataFrame): Input DataFrame containing connectivity data.
-        display_directed (bool): Whether to create directed graphs.
-        use_connection_count (bool): If True, edge weights are based on connection count; otherwise, coherence.
-        use_clustering (bool): If True, apply clustering to graphs.
-        coherence_threshold (float): Threshold for coherence values (between 0 and 1).
-        top_k (int): Number of top edges to include based on coherence.
+def process_window(session, condition, window, df, display_directed, use_connection_count,
+                   coherence_threshold, top_k):
+    # Filtrar os dados
+    filtered_data = df[(df['Session'] == session) & (df['Condition'] == condition)]
 
-    Returns:
-        dict: Nested dictionary with connectomes structured as:
-              connectomes[session][condition][window] = (graph, cluster_legend)
+    if filtered_data.empty:
+        return session, condition, window, None  # Inclui session e condition no retorno
+
+    coherence_col = {
+        'Win0': 'LoGammaCoherenceSignifWin0Spike',
+        'Win1': 'LoGammaCoherenceSignifWin1Spike',
+        'Win2': 'LoGammaCoherenceSignifWin2Spike'
+    }.get(window, None)
+
+    # Criar grafo
+    G = nx.DiGraph() if display_directed else nx.Graph()
+    coherence_sums = {}
+    coherence_counts = {}
+
+    # Construir arestas com pandas
+    if use_connection_count:
+        filtered_data['edge'] = list(zip(filtered_data['Ch1'], filtered_data['Ch2']))
+        edge_counts = filtered_data['edge'].value_counts()
+        for edge, count in edge_counts.items():
+            G.add_edge(*edge, weight=count)
+    else:
+        for _, row in filtered_data.iterrows():
+            ch1, ch2 = row['Ch1'], row['Ch2']
+            coherence = row[coherence_col] if coherence_col else 0
+            coherence_sums[(ch1, ch2)] = coherence_sums.get((ch1, ch2), 0) + coherence
+            coherence_counts[(ch1, ch2)] = coherence_counts.get((ch1, ch2), 0) + 1
+
+        max_avg_coherence = 0
+        avg_coherence = {}
+        for (ch1, ch2), sum_coherence in coherence_sums.items():
+            avg = sum_coherence / coherence_counts[(ch1, ch2)]
+            avg_coherence[(ch1, ch2)] = avg
+            max_avg_coherence = max(max_avg_coherence, avg)
+
+        if max_avg_coherence > 0:
+            # Aplicar limite de coerência
+            if coherence_threshold is not None:
+                avg_coherence = {
+                    edge: coherence for edge, coherence in avg_coherence.items()
+                    if coherence / max_avg_coherence >= coherence_threshold
+                }
+
+            # Ordenar e aplicar o top_k
+            sorted_edges = sorted(avg_coherence.items(), key=lambda x: x[1], reverse=True)
+            if top_k is not None:
+                sorted_edges = sorted_edges[:top_k]
+
+            # Adicionar arestas ao grafo
+            for (ch1, ch2), coherence in sorted_edges:
+                G.add_edge(ch1, ch2, weight=coherence / max_avg_coherence)
+
+    # Retornar grafo
+    return session, condition, window, (G, None)  # Retorna todos os valores necessários
+
+
+def generate_connectome_from_data(df, display_directed=True, use_connection_count=False,
+                                   coherence_threshold=0.1, top_k=None, n_jobs=-1):
     """
-    # Preprocess the DataFrame
+    Versão corrigida e paralelizada para geração de conectomas.
+    """
+    # Preprocessar DataFrame
     sessions, conditions, windows, df = preprocess_dataFrame(df)
 
-    # Initialize the connectomes dictionary
-    connectomes = {}
+    # Paralelizar processamento
+    results = Parallel(n_jobs=n_jobs, backend='loky')(
+        delayed(process_window)(
+            session, condition, window, df, display_directed, use_connection_count,
+            coherence_threshold, top_k
+        )
+        for session in sessions
+        for condition in conditions
+        for window in windows
+    )
 
-    # Generate graphs for each session, condition, and window
-    for session in sessions:
-        connectomes[session] = {}
-        for condition in conditions:
-            connectomes[session][condition] = {}
-            for window in windows:
-                # Filter data for current session and condition
-                filtered_data = df[df['Session'] == session]
-                filtered_data = df[df['Condition'] == condition]
-
-                # Check if filtered_data is empty
-                if filtered_data.empty:
-                    continue  # Skip if no data
-
-                # Determine the coherence column based on the window
-                coherence_col = None
-                if window == 'Win0':
-                    coherence_col = 'LoGammaCoherenceSignifWin0Spike'
-                elif window == 'Win1':
-                    coherence_col = 'LoGammaCoherenceSignifWin1Spike'
-                elif window == 'Win2':
-                    coherence_col = 'LoGammaCoherenceSignifWin2Spike'
-
-                # Initialize the graph
-                G = nx.DiGraph() if display_directed else nx.Graph()
-                coherence_sums = {}
-                coherence_counts = {}
-
-                # Add edges to the graph
-                for _, row in filtered_data.iterrows():
-                    ch1, ch2 = row['Ch1'], row['Ch2']
-                    coherence = row[coherence_col] if coherence_col else 0
-
-                    if use_connection_count:
-                        if G.has_edge(ch1, ch2):
-                            G[ch1][ch2]['weight'] += 1
-                        else:
-                            G.add_edge(ch1, ch2, weight=1)
-                    else:
-                        coherence_sums[(ch1, ch2)] = coherence_sums.get((ch1, ch2), 0) + coherence
-                        coherence_counts[(ch1, ch2)] = coherence_counts.get((ch1, ch2), 0) + 1
-
-                # Add edges with normalized coherence weights
-                if not use_connection_count:
-                    max_avg_coherence = 0
-                    avg_coherence = {}
-                    for (ch1, ch2), sum_coherence in coherence_sums.items():
-                        avg_coherence[(ch1, ch2)] = sum_coherence / coherence_counts[(ch1, ch2)]
-                        max_avg_coherence = max(max_avg_coherence, avg_coherence[(ch1, ch2)])
-
-                    if max_avg_coherence == 0:
-                        print(f"max_avg_coherence é zero para Session={session}, Condition={condition}, Window={window}. Pulando esta iteração.")
-                        continue  # Pula para a próxima iteração, pois não há dados válidos
-
-                    # Apply coherence threshold
-                    if coherence_threshold is not None:
-                        avg_coherence = {edge: coherence for edge, coherence in avg_coherence.items() if coherence / max_avg_coherence >= coherence_threshold}
-
-                    # Sort edges by coherence
-                    sorted_edges = sorted(avg_coherence.items(), key=lambda x: x[1], reverse=True)
-
-                    # Select top K edges
-                    if top_k is not None:
-                        sorted_edges = sorted_edges[:top_k]
-
-                    for (ch1, ch2), coherence in sorted_edges:
-                        normalized_coherence = coherence / max_avg_coherence if max_avg_coherence > 0 else 0
-                        G.add_edge(ch1, ch2, weight=normalized_coherence)
-
-                # Apply clustering if enabled
-                cluster_legend = None
-                if use_clustering and G.number_of_nodes() > 0:
-                    # [Clustering code remains the same]
-                    pass  # Omitido para brevidade
-
-                # Store the graph and cluster legend
-                connectomes[session][condition][window] = (G, cluster_legend)
+    # Organizar resultados
+    connectomes = {session: {condition: {} for condition in conditions} for session in sessions}
+    for session, condition, window, result in results:
+        if result is not None:
+            connectomes[session][condition][window] = result
 
     return connectomes
+
+
+
+# def generate_connectome_from_data(df, display_directed=True, use_connection_count=False, use_clustering=False, coherence_threshold=None, top_k=None):
+#     """
+#     Generates connectomes from the given dataset.
+
+#     Args:
+#         df (pd.DataFrame): Input DataFrame containing connectivity data.
+#         display_directed (bool): Whether to create directed graphs.
+#         use_connection_count (bool): If True, edge weights are based on connection count; otherwise, coherence.
+#         use_clustering (bool): If True, apply clustering to graphs.
+#         coherence_threshold (float): Threshold for coherence values (between 0 and 1).
+#         top_k (int): Number of top edges to include based on coherence.
+
+#     Returns:
+#         dict: Nested dictionary with connectomes structured as:
+#               connectomes[session][condition][window] = (graph, cluster_legend)
+#     """
+#     # Preprocess the DataFrame
+#     sessions, conditions, windows, df = preprocess_dataFrame(df)
+
+#     # Initialize the connectomes dictionary
+#     connectomes = {}
+
+#     # Generate graphs for each session, condition, and window
+#     for session in sessions:
+#         connectomes[session] = {}
+#         for condition in conditions:
+#             connectomes[session][condition] = {}
+#             for window in windows:
+#                 # Filter data for current session and condition
+#                 filtered_data = df[df['Session'] == session]
+#                 filtered_data = df[df['Condition'] == condition]
+
+#                 # Check if filtered_data is empty
+#                 if filtered_data.empty:
+#                     continue  # Skip if no data
+
+#                 # Determine the coherence column based on the window
+#                 coherence_col = None
+#                 if window == 'Win0':
+#                     coherence_col = 'LoGammaCoherenceSignifWin0Spike'
+#                 elif window == 'Win1':
+#                     coherence_col = 'LoGammaCoherenceSignifWin1Spike'
+#                 elif window == 'Win2':
+#                     coherence_col = 'LoGammaCoherenceSignifWin2Spike'
+
+#                 # Initialize the graph
+#                 G = nx.DiGraph() if display_directed else nx.Graph()
+#                 coherence_sums = {}
+#                 coherence_counts = {}
+
+#                 # Add edges to the graph
+#                 for _, row in filtered_data.iterrows():
+#                     ch1, ch2 = row['Ch1'], row['Ch2']
+#                     coherence = row[coherence_col] if coherence_col else 0
+
+#                     if use_connection_count:
+#                         if G.has_edge(ch1, ch2):
+#                             G[ch1][ch2]['weight'] += 1
+#                         else:
+#                             G.add_edge(ch1, ch2, weight=1)
+#                     else:
+#                         coherence_sums[(ch1, ch2)] = coherence_sums.get((ch1, ch2), 0) + coherence
+#                         coherence_counts[(ch1, ch2)] = coherence_counts.get((ch1, ch2), 0) + 1
+
+#                 # Add edges with normalized coherence weights
+#                 if not use_connection_count:
+#                     max_avg_coherence = 0
+#                     avg_coherence = {}
+#                     for (ch1, ch2), sum_coherence in coherence_sums.items():
+#                         avg_coherence[(ch1, ch2)] = sum_coherence / coherence_counts[(ch1, ch2)]
+#                         max_avg_coherence = max(max_avg_coherence, avg_coherence[(ch1, ch2)])
+
+#                     if max_avg_coherence == 0:
+#                         print(f"max_avg_coherence é zero para Session={session}, Condition={condition}, Window={window}. Pulando esta iteração.")
+#                         continue  # Pula para a próxima iteração, pois não há dados válidos
+
+#                     # Apply coherence threshold
+#                     if coherence_threshold is not None:
+#                         avg_coherence = {edge: coherence for edge, coherence in avg_coherence.items() if coherence / max_avg_coherence >= coherence_threshold}
+
+#                     # Sort edges by coherence
+#                     sorted_edges = sorted(avg_coherence.items(), key=lambda x: x[1], reverse=True)
+
+#                     # Select top K edges
+#                     if top_k is not None:
+#                         sorted_edges = sorted_edges[:top_k]
+
+#                     for (ch1, ch2), coherence in sorted_edges:
+#                         normalized_coherence = coherence / max_avg_coherence if max_avg_coherence > 0 else 0
+#                         G.add_edge(ch1, ch2, weight=normalized_coherence)
+
+#                 # Apply clustering if enabled
+#                 cluster_legend = None
+#                 if use_clustering and G.number_of_nodes() > 0:
+#                     # [Clustering code remains the same]
+#                     pass  # Omitido para brevidade
+
+#                 # Store the graph and cluster legend
+#                 connectomes[session][condition][window] = (G, cluster_legend)
+
+#     return connectomes
 
 def save_connectomes(connectomes, output_dir):
     """
@@ -156,7 +249,7 @@ if __name__ == "__main__":
     csv_file = 'data/predator_data.csv'  
     data = pd.read_csv(csv_file,  delimiter=',')
     
-    connectomes = generate_connectome_from_data(data, use_clustering=False)
+    connectomes = generate_connectome_from_data(data)
     
     # Salvar conectomas
     output_dir = 'outputs/predator_connectomes'  
@@ -165,7 +258,7 @@ if __name__ == "__main__":
     csv_file = 'data/prey_data.csv'  
 
     # Gerar conectomas
-    connectomes = generate_connectome_from_data(data, use_clustering=False)
+    connectomes = generate_connectome_from_data(data)
     
     # Salvar conectomas
     output_dir = 'outputs/prey_connectomes'  
