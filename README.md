@@ -1,13 +1,88 @@
-# Projeto de Análise de Conectomas Corticais com GNN
+---
 
-# **Conectoma GNN Analyser**
-
-Este projeto é uma aplicação interativa desenvolvida com [Streamlit](https://streamlit.io/) para analisar conectomas utilizando redes neurais gráficas (GNNs). Ele permite a visualização, classificação e explicação de grafos derivados de conectomas, tornando o fluxo de trabalho intuitivo para pesquisadores e cientistas de dados.
+### **Autores**
+Jaime B. Cirne*, Dardo N. Ferreiro++, Sergio A. Conde-Ocazionez***, João H.N. Patriota***, S. Neuenschwander** e Kerstin E. Schmidt*  
+(*Universidade Federal do Rio Grande do Norte, Brasil; **Vislab, UFRN; ***Universidade de Amsterdã; ++Ludwig Maximilian Universität, Alemanha)
 
 ---
 
-## **Objetivo**
-O objetivo principal desta aplicação é processar conectomas em formato de grafo, classificá-los com um modelo de rede neural gráfica (GNN) treinado e oferecer explicações interpretáveis das predições usando a biblioteca [Captum](https://captum.ai/).
+### **Abstract**
+
+In the last two decades, neurophysiological data of both high temporal and spatial resolution from up to hundreds of simultaneously recorded intracortical channels have become increasingly available, thanks to technical advancements such as the higher packing density of microelectrodes, miniaturization of headstages and amplifiers, higher sampling frequencies, and improved signal-to-noise ratios of individual electrodes (e.g., Chen et al., 2022). However, classical analysis techniques often remain focused on serial, single-unit firing rate-based metrics (e.g., Conde-Ocazionez et al., 2017a) or paired measures such as coherence between channels, thereby largely ignoring the high dimensionality of mutual interactions in datasets from multiple parallel channels recorded under the same experimental conditions.
+This issue has been partially addressed by computing spike statistics based on neuronal assemblies (e.g., Conde-Ocazionez et al., 2017b), where activity across multiple channels within the same time window is aggregated into population events, partially sacrificing spatial information about electrode distribution within recording matrices with spatial design.
+A solution developed to build human brain connectivity maps from diffusion tensor or functional magnetic resonance imaging with datasets offering high spatial but poor temporal resolution, is graph-based analysis of the connectome derived from all functional or anatomical links between defined nodes such as cortical areas (for review, Sporns, 2015). This technique, however, has been sparsely applied to mesoconnectomic data obtained from extracellular recordings of spatially distributed cortical electrodes (e.g., Dann et al., 2016).
+The correct interpretation of the results and accurate modeling of underlying circuits also heavily rely on effective data visualization. To address this, we developed a computational tool to model and interactively visualize brain mesoconnectomes derived from preprocessed electrophysiological data, such as interelectrode spike-spike or spike-field coherence measures (NES platform by SN and chronux toolbox by Bokil et al., 2010). The application utilizes graph theory and machine learning techniques to characterize neural connectivity and the identification of functional and structural differences between visual cortical connectomes of species with distinct evolutionary and behavioral traits.
+We used metadata from two animal models: the domestic cat (Felis catus), a predator with periodic cortical maps similar to those of primates, and the agouti (Dasyprocta leporina), a diurnal herbivore and highly visual rodent with a cortex size comparable to the cat but featuring a rodent-typical salt-and-pepper map. Both species were studied under identical experimental conditions (Ferreiro et al., 2021).
+The interface processes tabular neural connectivity data derived from multiple parallel electrophysiological recordings to model connectomes representing brain activity under different functional contexts. Distinct patterns were observed, confirming higher clustering of connections in the predator's visual cortex and a more dispersed connectivity pattern in the herbivore. The tool also facilitates navigation in big datasets because it enables interactive network visualization, exploratory analysis and deeper interpretation of the neurophysiological data.
+
+---
+
+### **Objetivo**
+O objetivo principal desta aplicação é processar conectomas em formato de grafo, classificá-los com um modelo de rede neural gráfica (GNN) treinado e oferecer explicações das predições do modelo GNN utilizando técnicas de atribuição de importância (Integrated Gradients).
+
+---
+
+### **Metodologia**
+- **Espécies Estudadas**: Gato (*Felis catus*) e Cutia (*Dasyprocta leporina*).
+- **Técnicas Utilizadas**:
+  - Análise de Grafos com **NetworkX**.
+  - Modelagem baseada em **Graph Neural Networks (GNN)**.
+  - Visualização interativa utilizando **Streamlit**.
+  - Explicações interpretáveis das predições usando a biblioteca [Captum](https://captum.ai/)
+  - Visualização de Embeddings Projeta as representações ocultas (features aprendidas) em um espaço 2D utilizando [t-SNE](https://scikit-learn.org/stable/modules/generated/sklearn.manifold.TSNE.html).
+- **Base de Dados**: Registros eletrofisiológicos organizados em condições experimentais idênticas.
+
+---
+
+### **Resultados**
+**Performance do Modelo GNN**:  
+![Desempenho do Modelo](./100_epoc.png)
+
+| Categoria  | Precisão | Recall | F1-Score | Suporte |
+|------------|----------|--------|----------|---------|
+| **Predador** | 0.95     | 0.95   | 0.95     | 60      |
+| **Presa**   | 0.95     | 0.95   | 0.95     | 56      |
+| **Acurácia** | -        | -      | 0.95     | 116     |
+
+---
+
+### **Características do Sistema**
+- **Entrada**: Dados conectivos (e.g., Spike-Spike Coherence).
+- **Saída**: Grafos interativos com clusters representativos.
+- **Implementação**:
+  - Pipeline desenvolvido em **Python**.
+  - Classificação utilizando **PyTorch Geometric**.
+  - Análise interpretável via **Captum**.
+  
+### **Contribuições**
+1. **Visualização Avançada**: Conectomas interativos para navegação em grandes datasets.
+2. **Detecção de Padrões**: Diferenças estruturais significativas em espécies estudadas.
+3. **Ferramenta Educacional**: Potencial para treinamento em neurociência.
+
+---
+
+### **Imagens Adicionais**
+**Visualização de Conectomas**:  
+![Visualização do Conectoma](./img/conectoma_visual.png)
+
+**Clusterização Louvain**:  
+![Clusterização Louvain](./img/clusters.png)
+
+---
+
+### **Referências**
+1. Chen et al., (2022) *Nature Genetics*. DOI: [10.1038/s41597-022-01180-1](https://doi.org/10.1038/s41597-022-01180-1)
+2. Ferreiro et al., (2021) *iScience*. DOI: [10.1016/j.isci.2020.101882](https://doi.org/10.1016/j.isci.2020.101882)
+3. Bokil et al. (2010) *Journal of Neuroscience Methods*. DOI: [10.1016/j.jneumeth.2010.06.020](https://doi.org/10.1016/j.jneumeth.2010.06.020)
+
+4. Conde-Ocazionez et al., (2018a),  DOI: [10.3389/fnsys.2018.00011](https://doi.org/10.3389/fnsys.2018.00011)
+5. Conde-Ocazionez et al., (2018b),  DOI: [10.1111/ejn.13786](https://doi.org/10.1111/ejn.13786)
+
+---
+
+### **Contato**
+[Instituto do Cérebro - UFRN](https://www.neuro.ufrn.br)  
+[Biome - UFRN](https://bioinfo.imd.ufrn.br/)  
 
 ---
 
@@ -29,8 +104,7 @@ O objetivo principal desta aplicação é processar conectomas em formato de gra
    - Explica as predições do modelo GNN utilizando técnicas de atribuição de importância (Integrated Gradients).
    - Apresenta gráficos interpretáveis para as contribuições das features.
 
-5. **Visualização de Embeddings**:
-   - Projeta as representações ocultas (features aprendidas) em um espaço 2D utilizando [t-SNE](https://scikit-learn.org/stable/modules/generated/sklearn.manifold.TSNE.html).
+5. **
 
 ---
 
