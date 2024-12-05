@@ -125,7 +125,7 @@ def load_data(predator_csv, prey_csv):
 
 def prepare_graph_data(data):
     """
-    Generates connectomes and prepares graph data and labels.
+    Generates separate connectomes for prey and predator, and prepares graph data and labels.
 
     Args:
         data (pandas.DataFrame): Combined data.
@@ -133,31 +133,51 @@ def prepare_graph_data(data):
     Returns:
         tuple: (graphs, labels, label_map, condition_to_label)
     """
-    connectomes = generate_connectome_from_data(
-        data,
+    # Filtra os dados por espécie
+    data_prey = data[data['especie'] == 'prey']
+    data_predator = data[data['especie'] == 'predator']
+
+    # Gera connectomes para cada espécie separadamente
+    connectomes_prey = generate_connectome_from_data(
+        data_prey,
         display_directed=False,
-        coherence_threshold=0.1,
+        coherence_threshold=None,
+        top_k=None,
+        n_jobs=-1
+    )
+    connectomes_predator = generate_connectome_from_data(
+        data_predator,
+        display_directed=False,
+        coherence_threshold=None,
         top_k=None,
         n_jobs=-1
     )
 
-    session_labels = {
-        session: 'predator' if session in data[data['especie'] == 'predator']['Session'].unique() else 'prey'
-        for session in data['Session'].unique()
-    }
+    # Mapeia rótulos
     label_map = {'predator': 0, 'prey': 1}
 
+    # Inicializa listas para gráficos, rótulos e mapeamento de condições
     graphs = []
     labels = []
     condition_to_label = {}
-    for session, session_data in connectomes.items():
+
+    # Processa os connectomes para "prey"
+    for session, session_data in connectomes_prey.items():
         for condition, condition_data in session_data.items():
             for window, (G, _) in condition_data.items():
                 if G is not None:
                     graphs.append(G)
-                    label = label_map[session_labels[session]]
-                    labels.append(label)
-                    condition_to_label[f"{session}_{condition}_{window}"] = label
+                    labels.append(label_map['prey'])
+                    condition_to_label[f"{session}_{condition}_{window}"] = label_map['prey']
+
+    # Processa os connectomes para "predator"
+    for session, session_data in connectomes_predator.items():
+        for condition, condition_data in session_data.items():
+            for window, (G, _) in condition_data.items():
+                if G is not None:
+                    graphs.append(G)
+                    labels.append(label_map['predator'])
+                    condition_to_label[f"{session}_{condition}_{window}"] = label_map['predator']
 
     return graphs, labels, label_map, condition_to_label
 
@@ -327,7 +347,7 @@ def train_gnn_model(predator_csv, prey_csv, model_save_path="models/gnn_classifi
     test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
     num_classes = len(label_map)
     model = GCN(num_features=max_nodes, num_classes=num_classes)
-    model = train_model(model, train_loader, num_epochs=200)
+    model = train_model(model, train_loader, num_epochs=100)
     evaluate_model(model, test_loader, label_map)
     save_model_and_mapping(model, condition_to_label, model_save_path, mapping_save_path, max_nodes, num_classes)
     return model
