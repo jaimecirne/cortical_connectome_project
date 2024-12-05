@@ -51,7 +51,7 @@ def generate_cached_connectomes(data):
     return generate_connectome_from_data(
         data,
         display_directed=False,
-        coherence_threshold=None,
+        coherence_threshold=0.01,
         top_k=None,
         n_jobs=-1
     )
@@ -192,7 +192,7 @@ def generate_cached_connectomes(data):
 #                 st.pyplot(fig)
 #                 plt.close(fig)
 
-def visualize_graph(G, title="Graph", edge_masks=None, cluster_view=False, coherence_threshold=0.1):
+def visualize_graph(G, title="Graph", edge_masks=None, cluster_view=False, coherence_threshold=0.01):
     """
     Visualizes a graph, optionally with edge importance masks and cluster visualization,
     while filtering edges based on a coherence threshold.
@@ -204,15 +204,7 @@ def visualize_graph(G, title="Graph", edge_masks=None, cluster_view=False, coher
         cluster_view: If True, visualizes the graph as clusters.
         coherence_threshold: Threshold for edge weight filtering. Edges below this value will be removed.
     """
-    # Remove edges with weight below the coherence_threshold
-    edges_to_remove = [(u, v) for u, v, data in G.edges(data=True) if data.get('weight', 0) < coherence_threshold]
-    G.remove_edges_from(edges_to_remove)
 
-    # Adjust node labels if the smallest node is 0
-    if min(G.nodes) == 0:
-        mapping = {node: node + 1 for node in G.nodes}  # Create mapping of 0->1, 1->2, ...
-        G = nx.relabel_nodes(G, mapping)  # Apply the mapping
-        st.info("Node labels were adjusted to start from 1.")
 
     if cluster_view:
         # Louvain clustering
@@ -273,6 +265,22 @@ def visualize_graph(G, title="Graph", edge_masks=None, cluster_view=False, coher
         node_colors = get_node_colors(G)
 
         if edge_masks is None:
+
+            # Remove edges with weight below the coherence_threshold
+            edges_to_remove = [(u, v) for u, v, data in G.edges(data=True) if data.get('weight', 0) < coherence_threshold]
+            G.remove_edges_from(edges_to_remove)
+
+            # Verifica se o grafo ainda possui arestas
+            if len(G.edges) == 0:
+                st.warning(f"The graph '{title}' has no edges after applying the coherence threshold ({coherence_threshold}). It will be discarded.")
+                return  # Descartar o grafo
+
+            # Adjust node labels if the smallest node is 0
+            if min(G.nodes) == 0:
+                mapping = {node: node + 1 for node in G.nodes}  # Create mapping of 0->1, 1->2, ...
+                G = nx.relabel_nodes(G, mapping)  # Apply the mapping
+                st.info("Node labels were adjusted to start from 1.")
+
             plt.figure(figsize=(10, 8))
             ax = plt.gca()
 
@@ -412,7 +420,7 @@ def explain_predictions(model, data_loader, graphs_info, device, method='salienc
         visualize_graph(
             G=G,
             title=title,
-            edge_masks={'Integrated Gradients': edge_mask_ig, 'Saliency': edge_mask_saliency}
+            edge_masks={'Integrated Gradients': edge_mask_ig, 'Saliency': edge_mask_saliency}            
         )
 
 
@@ -420,20 +428,17 @@ def main():
     st.title("Comparative Cortical Mesoconnectome Analysis Based on Electrophysiological Data: A Study of different species")
     
     # Banner English buttons
-    if st.sidebar.button("Banner in English"):
-        def read_markdown_file(markdown_file):
-            return Path(markdown_file).read_text(encoding="utf-8")
+    def read_markdown_file(markdown_file):
+        return Path(markdown_file).read_text(encoding="utf-8")
 
+    if st.sidebar.button("En"):
         intro_markdown = read_markdown_file("README.md")
         st.markdown(intro_markdown, unsafe_allow_html=True)
-
-    # Banner Portugues buttons
-    if st.sidebar.button("Banner em português Brasileiro"):
-        def read_markdown_file(markdown_file):
-            return Path(markdown_file).read_text(encoding="utf-8")
-
-        intro_markdown = read_markdown_file("README.md")
+    
+    if st.sidebar.button("Pt"):
+        intro_markdown = read_markdown_file("README_PT.md")
         st.markdown(intro_markdown, unsafe_allow_html=True)
+
 
     st.sidebar.title("Menu")
     uploaded_file = st.sidebar.file_uploader("Upload data file", type=["csv"])
@@ -512,6 +517,9 @@ def main():
                     for window, (G, cluster_legend) in windows.items():
                         if G.number_of_nodes() == 0:
                             continue
+                        # Verifica se o grafo ainda possui arestas
+                        if len(G.edges) == 0:
+                            continue  # Descartar o grafo
                         graphs.append(G)
                         graphs_info.append({
                             'session': session,

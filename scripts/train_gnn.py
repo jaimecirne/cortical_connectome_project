@@ -141,14 +141,14 @@ def prepare_graph_data(data):
     connectomes_prey = generate_connectome_from_data(
         data_prey,
         display_directed=False,
-        coherence_threshold=None,
+        coherence_threshold=0.01,
         top_k=None,
         n_jobs=-1
     )
     connectomes_predator = generate_connectome_from_data(
         data_predator,
         display_directed=False,
-        coherence_threshold=None,
+        coherence_threshold=0.01,
         top_k=None,
         n_jobs=-1
     )
