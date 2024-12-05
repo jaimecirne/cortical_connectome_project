@@ -12,67 +12,154 @@ from joblib import Parallel, delayed
 import pandas as pd
 import networkx as nx
 
-def process_window(session, condition, window, df, display_directed, use_connection_count,
+def process_window(session, condition, window, df, display_directed,
                    coherence_threshold, top_k):
-    # Filtrar os dados
+    """
+    Processa uma janela para criar um grafo com arestas ponderadas pela coerência (não normalizada).
+
+    Args:
+        session: Sessão atual.
+        condition: Condição atual.
+        window: Janela atual.
+        df: DataFrame com os dados.
+        display_directed: Se o grafo deve ser direcionado.
+        coherence_threshold: Limite mínimo de coerência para inclusão de arestas.
+        top_k: Número máximo de arestas a serem incluídas no grafo.
+
+    Returns:
+        session, condition, window, (grafo, legenda).
+    """
+    # Filtrar os dados para a sessão e condição atuais
     filtered_data = df[(df['Session'] == session) & (df['Condition'] == condition)]
 
     if filtered_data.empty:
+        print(f"No data found for session={session}, condition={condition}, window={window}")
         return session, condition, window, None  # Inclui session e condition no retorno
 
+    # Identificar as colunas de coerência e significância com base na janela
     coherence_col = {
+        'Win0': 'LoGammaCoherenceWin0Spike',
+        'Win1': 'LoGammaCoherenceWin1Spike',
+        'Win2': 'LoGammaCoherenceWin2Spike'
+    }.get(window, None)
+
+    significance_col = {
         'Win0': 'LoGammaCoherenceSignifWin0Spike',
         'Win1': 'LoGammaCoherenceSignifWin1Spike',
         'Win2': 'LoGammaCoherenceSignifWin2Spike'
     }.get(window, None)
 
-    # Criar grafo
+    if coherence_col not in df.columns or significance_col not in df.columns:
+        print(f"Required columns {coherence_col} or {significance_col} not found in data")
+        return session, condition, window, None
+
+    # Criar o grafo
     G = nx.DiGraph() if display_directed else nx.Graph()
     coherence_sums = {}
     coherence_counts = {}
 
-    # Construir arestas com pandas
-    if use_connection_count:
-        filtered_data['edge'] = list(zip(filtered_data['Ch1'], filtered_data['Ch2']))
-        edge_counts = filtered_data['edge'].value_counts()
-        for edge, count in edge_counts.items():
-            G.add_edge(*edge, weight=count)
-    else:
-        for _, row in filtered_data.iterrows():
-            ch1, ch2 = row['Ch1'], row['Ch2']
-            coherence = row[coherence_col] if coherence_col else 0
-            coherence_sums[(ch1, ch2)] = coherence_sums.get((ch1, ch2), 0) + coherence
-            coherence_counts[(ch1, ch2)] = coherence_counts.get((ch1, ch2), 0) + 1
+    # Iterar pelos dados e acumular coerências apenas quando significância for 1
+    for _, row in filtered_data.iterrows():
+        ch1, ch2 = row['Ch1'], row['Ch2']
+        significance = row[significance_col]
+        coherence = row[coherence_col] if significance == 1 else 0
 
-        max_avg_coherence = 0
-        avg_coherence = {}
-        for (ch1, ch2), sum_coherence in coherence_sums.items():
-            avg = sum_coherence / coherence_counts[(ch1, ch2)]
-            avg_coherence[(ch1, ch2)] = avg
-            max_avg_coherence = max(max_avg_coherence, avg)
+        # Depuração: Verificar valores de coerência e significância
+        if significance != 1:
+            print(f"Significance for edge ({ch1}, {ch2}) is {significance}. Ignoring coherence.")
 
-        if max_avg_coherence > 0:
-            # Aplicar limite de coerência
-            if coherence_threshold is not None:
-                avg_coherence = {
-                    edge: coherence for edge, coherence in avg_coherence.items()
-                    if coherence / max_avg_coherence >= coherence_threshold
-                }
+        coherence_sums[(ch1, ch2)] = coherence_sums.get((ch1, ch2), 0) + coherence
+        coherence_counts[(ch1, ch2)] = coherence_counts.get((ch1, ch2), 0) + (1 if significance == 1 else 0)
 
-            # Ordenar e aplicar o top_k
-            sorted_edges = sorted(avg_coherence.items(), key=lambda x: x[1], reverse=True)
-            if top_k is not None:
-                sorted_edges = sorted_edges[:top_k]
+    # Depuração: Imprimir somas e contagens
+    print("Coherence sums:", coherence_sums)
+    print("Coherence counts:", coherence_counts)
 
-            # Adicionar arestas ao grafo
-            for (ch1, ch2), coherence in sorted_edges:
-                G.add_edge(ch1, ch2, weight=coherence / max_avg_coherence)
+    # Calcular a coerência média por aresta
+    avg_coherence = {
+        (ch1, ch2): sum_coherence / coherence_counts[(ch1, ch2)]
+        for (ch1, ch2), sum_coherence in coherence_sums.items()
+        if coherence_counts[(ch1, ch2)] > 0  # Evitar divisão por zero
+    }
 
-    # Retornar grafo
-    return session, condition, window, (G, None)  # Retorna todos os valores necessários
+    # Depuração: Imprimir coerências médias
+    print("Average coherence:", avg_coherence)
+
+    # Aplicar limite de coerência (coherence_threshold)
+    if coherence_threshold is not None:
+        avg_coherence = {
+            edge: coherence for edge, coherence in avg_coherence.items()
+            if coherence >= coherence_threshold
+        }
+
+    # Ordenar arestas por coerência e aplicar o top_k
+    sorted_edges = sorted(avg_coherence.items(), key=lambda x: x[1], reverse=True)
+    if top_k is not None:
+        sorted_edges = sorted_edges[:top_k]
+
+    # Adicionar arestas ao grafo sem normalização
+    for (ch1, ch2), coherence in sorted_edges:
+        G.add_edge(ch1, ch2, weight=coherence)
+
+    # Retornar o grafo com seus metadados
+    return session, condition, window, (G, None)
 
 
-def generate_connectome_from_data(df, display_directed=True, use_connection_count=False,
+
+# def process_window(session, condition, window, df, display_directed,
+#                    coherence_threshold, top_k):
+#     # Filtrar os dados
+#     filtered_data = df[(df['Session'] == session) & (df['Condition'] == condition)]
+
+#     if filtered_data.empty:
+#         return session, condition, window, None  # Inclui session e condition no retorno
+
+#     coherence_col = {
+#         'Win0': 'LoGammaCoherenceSignifWin0Spike',
+#         'Win1': 'LoGammaCoherenceSignifWin1Spike',
+#         'Win2': 'LoGammaCoherenceSignifWin2Spike'
+#     }.get(window, None)
+
+#     # Criar grafo
+#     G = nx.DiGraph() if display_directed else nx.Graph()
+#     coherence_sums = {}
+#     coherence_counts = {}
+
+#     for _, row in filtered_data.iterrows():
+#         ch1, ch2 = row['Ch1'], row['Ch2']
+#         coherence = row[coherence_col] if coherence_col else 0
+#         coherence_sums[(ch1, ch2)] = coherence_sums.get((ch1, ch2), 0) + coherence
+#         coherence_counts[(ch1, ch2)] = coherence_counts.get((ch1, ch2), 0) + 1
+
+#     max_avg_coherence = 0
+#     avg_coherence = {}
+#     for (ch1, ch2), sum_coherence in coherence_sums.items():
+#         avg = sum_coherence / coherence_counts[(ch1, ch2)]
+#         avg_coherence[(ch1, ch2)] = avg
+#         max_avg_coherence = max(max_avg_coherence, avg)
+
+#     if max_avg_coherence > 0:
+#         # Aplicar limite de coerência
+#         if coherence_threshold is not None:
+#             avg_coherence = {
+#                 edge: coherence for edge, coherence in avg_coherence.items()
+#                 if coherence / max_avg_coherence >= coherence_threshold
+#             }
+
+#         # Ordenar e aplicar o top_k
+#         sorted_edges = sorted(avg_coherence.items(), key=lambda x: x[1], reverse=True)
+#         if top_k is not None:
+#             sorted_edges = sorted_edges[:top_k]
+
+#         # Adicionar arestas ao grafo
+#         for (ch1, ch2), coherence in sorted_edges:
+#             G.add_edge(ch1, ch2, weight=coherence / max_avg_coherence)
+
+#     # Retornar grafo
+#     return session, condition, window, (G, None)  # Retorna todos os valores necessários
+
+
+def generate_connectome_from_data(df, display_directed=True,
                                    coherence_threshold=0.1, top_k=None, n_jobs=-1):
     """
     Versão corrigida e paralelizada para geração de conectomas.
@@ -83,7 +170,7 @@ def generate_connectome_from_data(df, display_directed=True, use_connection_coun
     # Paralelizar processamento
     results = Parallel(n_jobs=n_jobs, backend='loky')(
         delayed(process_window)(
-            session, condition, window, df, display_directed, use_connection_count,
+            session, condition, window, df, display_directed,
             coherence_threshold, top_k
         )
         for session in sessions

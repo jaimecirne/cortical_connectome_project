@@ -9,6 +9,7 @@ import os
 def preprocess_dataFrame(df):
     df = df.replace(',', '.', regex=True)
     df = df.replace('.', np.nan)
+
     numeric_columns = [
         'LoGammaCoherenceWin0Spike', 'LoGammaCoherenceSignifWin0Spike',
         'LoGammaCoherenceWin1Spike', 'LoGammaCoherenceSignifWin1Spike',
@@ -46,5 +47,8 @@ def preprocess_dataFrame(df):
     sessions = list(df['Session'].unique())
     conditions = [str(x) for x in df['Condition'].unique()]
     windows = ['Win0', 'Win1', 'Win2']
+
+    df.Ch1 = df.Ch1.astype(int)
+    df.Ch2 = df.Ch2.astype(int)
 
     return sessions, conditions, windows, df

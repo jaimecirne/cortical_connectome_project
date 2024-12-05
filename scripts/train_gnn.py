@@ -136,7 +136,6 @@ def prepare_graph_data(data):
     connectomes = generate_connectome_from_data(
         data,
         display_directed=False,
-        use_connection_count=False,
         coherence_threshold=0.1,
         top_k=None,
         n_jobs=-1
