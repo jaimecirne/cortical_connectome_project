@@ -76,6 +76,8 @@ The model architecture includes:
 #### Captum
 We used Captum to generate explanations with:
 - **Integrated Gradients**: Measures the contribution of each feature to the prediction.
+ ![Clusterização Louvain](https://github.com/jaimecirne/cortical_connectome_project/blob/main/img/Prediction1_ig.png?raw=true)
+
 
 #### t-SNE
 Reduces the dimensions of the learned embeddings to 2D, allowing visualization of the relationships between graphs.

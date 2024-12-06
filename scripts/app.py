@@ -55,144 +55,11 @@ def generate_cached_connectomes(data):
         top_k=None,
         n_jobs=-1
     )
+# Configuração dinâmica do Coherence Threshold
+if 'coherence_threshold' not in st.session_state:
+    st.session_state['coherence_threshold'] = 0.01  # Valor padrão
 
-# def visualize_graph(G, title="Graph", edge_masks=None, cluster_view=False):
-#     """
-#     Visualizes a graph, optionally with edge importance masks and cluster visualization.
-
-#     Args:
-#         G: NetworkX graph to visualize.
-#         title: Title for the plot.
-#         edge_masks: Optional dictionary of method names to edge masks.
-#         cluster_view: If True, visualizes the graph as clusters.
-#     """
-
-#     # Realizar ajuste nos nós se o menor nó for 0
-#     if min(G.nodes) == 0:
-#         mapping = {node: node + 1 for node in G.nodes}  # Cria um mapeamento de 0->1, 1->2, ...
-#         G = nx.relabel_nodes(G, mapping)  # Aplica o mapeamento
-#         st.info("Node labels were adjusted to start from 1.")
-
-#     if cluster_view:
-#         # Louvain clustering
-#         partition = community_louvain.best_partition(G)
-        
-#         # Agrupamento de nós em clusters
-#         clusters_map = {}
-#         for node, community in partition.items():
-#             clusters_map.setdefault(community, []).append(node)
-        
-#         # Exibir os clusters
-#         cluster_legenda = "\n".join([f"Cluster {com}: {', '.join(map(str, nos))}" for com, nos in clusters_map.items()])
-#         st.text(f"Clusters Detected:\n{cluster_legenda}")
-
-#         # Criar o grafo reduzido (agrupado)
-#         clustered_G = nx.Graph()
-#         for node, community in partition.items():
-#             clustered_G.add_node(community)
-
-#         for ch1, ch2, data in G.edges(data=True):
-#             com1 = partition[ch1]
-#             com2 = partition[ch2]
-#             weight = data.get('weight', 1)  # Use 1 como peso padrão se 'weight' não existir
-#             if clustered_G.has_edge(com1, com2):
-#                 clustered_G[com1][com2]['weight'] += weight
-#             else:
-#                 clustered_G.add_edge(com1, com2, weight=weight)
-
-#         # Visualizar o grafo reduzido
-#         pos = nx.spring_layout(clustered_G, seed=42)  # Layout ajustado para o grafo reduzido
-#         weights = np.array(list(nx.get_edge_attributes(clustered_G, 'weight').values()))
-        
-#         plt.figure(figsize=(10, 8))
-#         ax = plt.gca()
-        
-#         if len(weights) > 0:
-#             norm = plt.Normalize(vmin=weights.min(), vmax=weights.max())
-#             edge_colors = plt.cm.viridis(norm(weights))
-#             nx.draw(clustered_G, pos, ax=ax, with_labels=True, node_size=500, node_color='lightblue',
-#                     font_size=10, edge_color=edge_colors, width=2, edge_cmap=plt.cm.viridis)
-#             sm = plt.cm.ScalarMappable(cmap=plt.cm.viridis, norm=norm)
-#             sm.set_array([])
-#             cbar = plt.colorbar(sm, ax=ax)
-#             cbar.set_label('Edge Weight (Cluster Level)', rotation=270, labelpad=20)
-#         else:
-#             nx.draw(clustered_G, pos, ax=ax, with_labels=True, node_size=500, node_color='lightblue', font_size=10)
-
-#         ax.set_title(f"{title} - Clustered View")
-#         ax.set_axis_off()
-
-#         # Mostrar o grafo
-#         st.pyplot(plt.gcf())
-#         plt.close()
-    
-#     else:
-#         # Visualização padrão
-#         pos = nx.circular_layout(G, scale=10)
-#         node_sizes = 300  # Fixed size
-#         node_colors = get_node_colors(G)
-
-#         if edge_masks is None:
-#             plt.figure(figsize=(10, 8))
-#             ax = plt.gca()
-
-#             weights = np.array(list(nx.get_edge_attributes(G, 'weight').values()))
-
-#             if len(weights) > 0:
-#                 norm = plt.Normalize(vmin=weights.min(), vmax=weights.max())
-#                 edge_colors = plt.cm.viridis(norm(weights))
-#                 nx.draw(G, pos, ax=ax, with_labels=True, node_size=node_sizes, node_color=node_colors,
-#                         font_size=10, edge_color=edge_colors, width=2, edge_cmap=plt.cm.viridis)
-#                 sm = plt.cm.ScalarMappable(cmap=plt.cm.viridis, norm=norm)
-#                 sm.set_array([])
-#                 cbar = plt.colorbar(sm, ax=ax)
-#                 cbar.set_label('Edge Weight (Normalized Coherence)', rotation=270, labelpad=20)
-#             else:
-#                 nx.draw(G, pos, ax=ax, with_labels=True, node_size=node_sizes, node_color=node_colors, font_size=10)
-
-#             ax.set_title(title)
-#             ax.set_axis_off()
-
-#             st.pyplot(plt.gcf())
-#             plt.close()
-#         else:
-#             # Visualization with explanations
-#             for method_name, edge_mask in edge_masks.items():
-#                 fig, ax = plt.subplots(figsize=(10, 8))
-                
-#                 for i, (u, v) in enumerate(G.edges()):
-#                     G[u][v]['importance'] = edge_mask[i]
-
-#                 edge_colors = [G[u][v]['importance'] for u, v in G.edges()]
-#                 edge_colors = np.array(edge_colors)
-#                 if edge_colors.max() > 0:
-#                     edge_colors = (edge_colors - edge_colors.min()) / (edge_colors.max() - edge_colors.min())
-
-#                 cmap = plt.cm.Reds if method_name == 'Integrated Gradients' else plt.cm.Blues
-#                 nx.draw(
-#                     G,
-#                     pos,
-#                     ax=ax,
-#                     with_labels=True,
-#                     node_size=node_sizes,
-#                     node_color=node_colors,
-#                     font_size=10,
-#                     edge_color=edge_colors,
-#                     edge_cmap=cmap,
-#                     width=2
-#                 )
-
-#                 sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=edge_colors.min(), vmax=edge_colors.max()))
-#                 sm.set_array([])
-#                 cbar = fig.colorbar(sm, ax=ax)
-#                 cbar.set_label('Edge Importance', rotation=270, labelpad=20)
-#                 ax.set_title(f"{title} {method_name}")
-#                 ax.axis('off')
-
-#                 st.pyplot(fig)
-#                 plt.close(fig)
-
-def visualize_graph(G, title="Graph", edge_masks=None, cluster_view=False, coherence_threshold=0.01):
+def visualize_graph(G, title="Graph", edge_masks=None, cluster_view=False, coherence_threshold=st.session_state['coherence_threshold']):
     """
     Visualizes a graph, optionally with edge importance masks and cluster visualization,
     while filtering edges based on a coherence threshold.
@@ -204,7 +71,6 @@ def visualize_graph(G, title="Graph", edge_masks=None, cluster_view=False, coher
         cluster_view: If True, visualizes the graph as clusters.
         coherence_threshold: Threshold for edge weight filtering. Edges below this value will be removed.
     """
-
 
     if cluster_view:
         # Louvain clustering
@@ -457,6 +323,16 @@ def main():
         with st.spinner('Generating connectomes...'):
             connectomes = generate_cached_connectomes(data)
         st.success("Connectomes generated!")
+        
+        st.sidebar.markdown("### Coherence Threshold")
+        st.session_state['coherence_threshold'] = st.sidebar.slider(
+            "Adjust the Coherence Threshold",
+            min_value=0.0,
+            max_value=1.0,
+            value=st.session_state['coherence_threshold'],
+            step=0.01,
+            help="Edges with weights below this threshold will be removed from the graph."
+        )
 
             
         # Main interaction buttons
