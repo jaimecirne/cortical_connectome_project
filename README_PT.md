@@ -70,10 +70,11 @@ A arquitetura do modelo inclui:
 #### Captum  
 Usamos Captum para gerar explicações com:  
 - **Integrated Gradients**: Mede a contribuição de cada característica para a predição.  
+ ![Integrated Gradients](https://github.com/jaimecirne/cortical_connectome_project/blob/main/img/Prediction1_ig.png?raw=true)
 
 #### t-SNE  
 Reduz as dimensões dos embeddings aprendidos para 2D, permitindo a visualização das relações entre grafos.  
-
+ ![Integrated Gradients](https://github.com/jaimecirne/cortical_connectome_project/blob/main/img/t-SNEs_small.png?raw=true)
 ---
 
 ### **Contribuições**  
