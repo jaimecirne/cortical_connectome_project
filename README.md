@@ -82,7 +82,8 @@ We used Captum to generate explanations with:
 #### t-SNE
 Reduces the dimensions of the learned embeddings to 2D, allowing visualization of the relationships between graphs.
 
- ![Integrated Gradients](https://github.com/jaimecirne/cortical_connectome_project/blob/main/img/t-SNEs_small.png?raw=true)
+ ![t-SNE](https://github.com/jaimecirne/cortical_connectome_project/blob/main/img/t-SNE_small.png?raw=true)
+
 ---
   
 ### **Contributions**

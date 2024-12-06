@@ -73,8 +73,10 @@ Usamos Captum para gerar explicações com:
  ![Integrated Gradients](https://github.com/jaimecirne/cortical_connectome_project/blob/main/img/Prediction1_ig.png?raw=true)
 
 #### t-SNE  
-Reduz as dimensões dos embeddings aprendidos para 2D, permitindo a visualização das relações entre grafos.  
- ![Integrated Gradients](https://github.com/jaimecirne/cortical_connectome_project/blob/main/img/t-SNEs_small.png?raw=true)
+Reduz as dimensões dos embeddings aprendidos para 2D, permitindo a visualização das relações entre grafos.
+
+![t-SNE](https://github.com/jaimecirne/cortical_connectome_project/blob/main/img/t-SNE_small.png?raw=true)
+
 ---
 
 ### **Contribuições**  
